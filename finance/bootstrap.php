@@ -1,58 +1,47 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+/**
+ * Finance Bootstrap
+ * Reuses admin bootstrap (session, PDO, auth, CSRF, flash) and adds backward-compat wrappers.
+ */
+
+require_once __DIR__ . '/../admin/bootstrap.php';
+
+// ── Backward compat: $pdo global ─────────────────────────────────────────────
+$pdo = getPDO();
+
+// ── Enforce login ─────────────────────────────────────────────────────────────
+requireLogin();
+
+// ── Backward compat: set_flash / get_flash / old ──────────────────────────────
+if (!function_exists('set_flash')) {
+    function set_flash(string $type, string $message): void
+    {
+        match ($type) {
+            'success' => flashSuccess($message),
+            'error'   => flashError($message),
+            default   => flashInfo($message),
+        };
+    }
 }
 
-$host = 'localhost';
-$dbname = 'zaka';
-$username = 'zaka';      // عدلها إذا لزم
-$password = 'Tvvcrtv1610@';          // عدلها إذا لزم
-
-try {
-    $pdo = new PDO(
-        "mysql:host=$host;dbname=$dbname;charset=utf8mb4",
-        $username,
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]
-    );
-} catch (PDOException $e) {
-    die('فشل الاتصال بقاعدة البيانات: ' . $e->getMessage());
-}
-
-function e($value)
-{
-    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
-}
-
-function redirect($url)
-{
-    header("Location: $url");
-    exit;
-}
-
-function set_flash($type, $message)
-{
-    $_SESSION['flash'] = [
-        'type' => $type,
-        'message' => $message
-    ];
-}
-
-function get_flash()
-{
-    if (!isset($_SESSION['flash'])) {
+if (!function_exists('get_flash')) {
+    function get_flash(): ?array
+    {
+        $flash = getFlash();
+        if (!$flash) {
+            return null;
+        }
+        $map = ['success' => 'success', 'error' => 'error', 'info' => 'info'];
+        foreach ($flash as $type => $msg) {
+            return ['type' => $map[$type] ?? 'info', 'message' => (string)$msg];
+        }
         return null;
     }
-
-    $flash = $_SESSION['flash'];
-    unset($_SESSION['flash']);
-    return $flash;
 }
 
-function old($key, $default = '')
-{
-    return $_POST[$key] ?? $default;
+if (!function_exists('old')) {
+    function old(string $key, string $default = ''): string
+    {
+        return (string)($_POST[$key] ?? $default);
+    }
 }
