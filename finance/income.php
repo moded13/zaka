@@ -1,45 +1,46 @@
 <?php
 require_once 'bootstrap.php';
+require_once 'helpers.php';
 
 $page_title = 'دفتر الإيرادات';
 
 $categories = $pdo->query("SELECT * FROM income_categories WHERE is_active = 1 ORDER BY name ASC")->fetchAll();
 
-$from = $_GET['from'] ?? '';
-$to = $_GET['to'] ?? '';
-$category = $_GET['category'] ?? '';
-$search = trim($_GET['search'] ?? '');
+// Receipt books (if migrated)
+$books = [];
+if (receipt_books_exist()) {
+    $books = $pdo->query(
+        "SELECT id, book_no, start_receipt_no, end_receipt_no
+         FROM receipt_books WHERE status = 'open' ORDER BY book_no ASC"
+    )->fetchAll();
+}
 
-$sql = "
-    SELECT i.*, c.name AS category_name
-    FROM finance_income i
-    LEFT JOIN income_categories c ON i.category_id = c.id
-    WHERE 1=1
-";
+$from     = $_GET['from'] ?? '';
+$to       = $_GET['to'] ?? '';
+$category = $_GET['category'] ?? '';
+$search   = trim($_GET['search'] ?? '');
+
+$sql    = "SELECT i.*, c.name AS category_name FROM finance_income i LEFT JOIN income_categories c ON i.category_id = c.id WHERE 1=1";
 $params = [];
 
 if ($from !== '') {
-    $sql .= " AND i.income_date >= ?";
+    $sql    .= " AND i.income_date >= ?";
     $params[] = $from;
 }
-
 if ($to !== '') {
-    $sql .= " AND i.income_date <= ?";
+    $sql    .= " AND i.income_date <= ?";
     $params[] = $to;
 }
-
 if ($category !== '') {
-    $sql .= " AND i.category_id = ?";
+    $sql    .= " AND i.category_id = ?";
     $params[] = $category;
 }
-
 if ($search !== '') {
-    $sql .= " AND (i.receipt_no LIKE ? OR i.donor_name LIKE ? OR i.notes LIKE ?)";
+    $sql    .= " AND (i.receipt_no LIKE ? OR i.donor_name LIKE ? OR i.notes LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
     $params[] = "%$search%";
 }
-
 $sql .= " ORDER BY i.id DESC LIMIT 500";
 
 $stmt = $pdo->prepare($sql);
@@ -53,6 +54,7 @@ require 'layout.php';
     <h2>إضافة إيراد جديد</h2>
 
     <form method="post" action="income_store.php">
+        <?= csrfField() ?>
         <div class="row">
             <div>
                 <label>رقم الوصول *</label>
@@ -88,6 +90,21 @@ require 'layout.php';
                 <label>طريقة الدفع</label>
                 <input type="text" name="payment_method" placeholder="نقد / تحويل / شيك">
             </div>
+
+            <?php if ($books): ?>
+            <div>
+                <label>دفتر الوصولات (اختياري)</label>
+                <select name="book_id">
+                    <option value="">-- بدون دفتر --</option>
+                    <?php foreach ($books as $bk): ?>
+                        <option value="<?= (int)$bk['id'] ?>">
+                            دفتر <?= e($bk['book_no']) ?>
+                            (<?= (int)$bk['start_receipt_no'] ?>–<?= (int)$bk['end_receipt_no'] ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div>
@@ -108,12 +125,10 @@ require 'layout.php';
                 <label>من تاريخ</label>
                 <input type="date" name="from" value="<?= e($from) ?>">
             </div>
-
             <div>
                 <label>إلى تاريخ</label>
                 <input type="date" name="to" value="<?= e($to) ?>">
             </div>
-
             <div>
                 <label>التصنيف</label>
                 <select name="category">
@@ -125,13 +140,11 @@ require 'layout.php';
                     <?php endforeach; ?>
                 </select>
             </div>
-
             <div>
                 <label>بحث</label>
                 <input type="text" name="search" value="<?= e($search) ?>" placeholder="رقم الوصول / اسم المتبرع / ملاحظات">
             </div>
         </div>
-
         <button type="submit" class="btn btn-primary">تطبيق</button>
         <a href="income.php" class="btn btn-secondary">مسح</a>
     </form>
@@ -140,6 +153,7 @@ require 'layout.php';
 <div class="card">
     <h2>دفتر الإيرادات</h2>
 
+    <div class="table-wrap">
     <table>
         <tr>
             <th>#</th>
@@ -164,16 +178,22 @@ require 'layout.php';
                     <td><?= number_format((float)$row['amount'], 2) ?></td>
                     <td><?= e($row['payment_method']) ?></td>
                     <td><?= e($row['notes']) ?></td>
-<td class="actions">
-    <a class="btn btn-light" target="_blank" href="income_print.php?id=<?= (int)$row['id'] ?>">طباعة</a>
-    <a class="btn btn-warning" href="income_edit.php?id=<?= (int)$row['id'] ?>">تعديل</a>
-    <a class="btn btn-danger" href="income_delete.php?id=<?= (int)$row['id'] ?>" onclick="return confirm('هل أنت متأكد من حذف هذا الإيراد؟');">حذف</a>
-</td>                </tr>
+                    <td class="actions">
+                        <a class="btn btn-light" target="_blank" href="income_print.php?id=<?= (int)$row['id'] ?>">طباعة</a>
+                        <a class="btn btn-warning" href="income_edit.php?id=<?= (int)$row['id'] ?>">تعديل</a>
+                        <form method="post" action="income_delete.php" style="display:inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الإيراد؟');">
+                            <?= csrfField() ?>
+                            <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+                            <button type="submit" class="btn btn-danger">حذف</button>
+                        </form>
+                    </td>
+                </tr>
             <?php endforeach; ?>
         <?php else: ?>
-            <tr><td colspan="9">لا توجد بيانات</td></tr>
+            <tr><td colspan="9" class="empty-state">لا توجد بيانات</td></tr>
         <?php endif; ?>
     </table>
+    </div>
 </div>
 
 </div>

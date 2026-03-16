@@ -570,7 +570,9 @@ $flash = get_flash();
             <a href="index.php">الرئيسية</a>
             <a href="income.php">دفتر الإيرادات</a>
             <a href="expenses.php">دفتر المدفوعات</a>
+            <a href="receipt_books.php">دفاتر الوصولات</a>
             <a href="report.php">التقرير المالي</a>
+            <a href="/zaka/admin/dashboard.php" style="background:rgba(255,255,255,0.08);">← لوحة الإدارة</a>
         </div>
     </div>
 
