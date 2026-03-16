@@ -49,10 +49,10 @@ if ($book_id && receipt_books_exist()) {
     }
 }
 
-// Build columns dynamically (book_id may not exist yet)
+// Insert: book_id is NULL if column doesn't exist yet or no book selected
 $pdo->beginTransaction();
 try {
-    if ($book_id && book_id_exists_in_income()) {
+    if (book_id_exists_in_income()) {
         $stmt = $pdo->prepare(
             "INSERT INTO finance_income
              (book_id, receipt_no, income_date, donor_name, category_id, amount, payment_method, notes)

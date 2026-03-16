@@ -43,8 +43,11 @@ $collected     = array_sum(array_column($receipts, 'amount'));
 // Missing receipt numbers within range
 $usedNos    = array_map(fn($r) => (int)$r['receipt_no'], $receipts);
 sort($usedNos);
-$allNos     = range((int)$book['start_receipt_no'], (int)$book['end_receipt_no']);
-$missingNos = array_values(array_diff($allNos, $usedNos));
+$missingNos = compute_missing_receipts(
+    (int)$book['start_receipt_no'],
+    (int)$book['end_receipt_no'],
+    $usedNos
+);
 
 $page_title = 'دفتر الوصولات: ' . $book['book_no'];
 require 'layout.php';

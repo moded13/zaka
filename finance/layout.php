@@ -572,7 +572,7 @@ $flash = get_flash();
             <a href="expenses.php">دفتر المدفوعات</a>
             <a href="receipt_books.php">دفاتر الوصولات</a>
             <a href="report.php">التقرير المالي</a>
-            <a href="/zaka/admin/dashboard.php" style="background:rgba(255,255,255,0.08);">← لوحة الإدارة</a>
+            <a href="<?= e(ADMIN_PATH) ?>/dashboard.php" style="background:rgba(255,255,255,0.08);">← لوحة الإدارة</a>
         </div>
     </div>
 

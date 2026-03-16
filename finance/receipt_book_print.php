@@ -33,8 +33,11 @@ if (book_id_exists_in_income()) {
 }
 
 $usedNos    = array_map(fn($r) => (int)$r['receipt_no'], $receipts);
-$allNos     = range((int)$book['start_receipt_no'], (int)$book['end_receipt_no']);
-$missingNos = array_values(array_diff($allNos, $usedNos));
+$missingNos = compute_missing_receipts(
+    (int)$book['start_receipt_no'],
+    (int)$book['end_receipt_no'],
+    $usedNos
+);
 $usedCount  = count($receipts);
 $totalReceipts = (int)$book['total_receipts'];
 $remaining  = $totalReceipts - $usedCount;

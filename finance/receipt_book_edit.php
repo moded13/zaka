@@ -40,6 +40,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('receipt_book_edit.php?id=' . $id);
     }
 
+    // Validate new range doesn't orphan existing receipts
+    if (book_id_exists_in_income()) {
+        $outOfRange = $pdo->prepare(
+            "SELECT COUNT(*) FROM finance_income
+             WHERE book_id = ? AND (CAST(receipt_no AS UNSIGNED) < ? OR CAST(receipt_no AS UNSIGNED) > ?)"
+        );
+        $outOfRange->execute([$id, $start_receipt, $end_receipt]);
+        if ($outOfRange->fetchColumn() > 0) {
+            set_flash('error', 'النطاق الجديد يستبعد وصولات مسجّلة بالفعل في هذا الدفتر. يجب توسيع النطاق ليشمل جميع الوصولات الموجودة.');
+            redirect('receipt_book_edit.php?id=' . $id);
+        }
+    }
+
     $total_receipts = $end_receipt - $start_receipt + 1;
 
     $stmt = $pdo->prepare(

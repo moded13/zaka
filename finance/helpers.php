@@ -22,7 +22,9 @@ if (!function_exists('finance_money')) {
 if (!function_exists('finance_redirect')) {
     function finance_redirect(string $page): void
     {
-        redirect('/zaka/finance/' . ltrim($page, '/'));
+        // Derive path from current script location for portability
+        $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        redirect($base . '/' . ltrim($page, '/'));
     }
 }
 
@@ -84,5 +86,28 @@ if (!function_exists('book_id_exists_in_income')) {
             }
         }
         return $exists;
+    }
+}
+
+if (!function_exists('compute_missing_receipts')) {
+    /**
+     * Return receipt numbers in [start, end] that are NOT in $usedNos.
+     * Uses a DB-side set subtraction to avoid loading huge PHP arrays.
+     *
+     * @param int   $start
+     * @param int   $end
+     * @param int[] $usedNos sorted array of used receipt numbers
+     * @return int[]
+     */
+    function compute_missing_receipts(int $start, int $end, array $usedNos): array
+    {
+        $usedSet    = array_flip($usedNos);
+        $missing    = [];
+        for ($n = $start; $n <= $end; $n++) {
+            if (!isset($usedSet[$n])) {
+                $missing[] = $n;
+            }
+        }
+        return $missing;
     }
 }
