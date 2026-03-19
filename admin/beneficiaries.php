@@ -14,7 +14,7 @@
  *   - Hard delete with archive
  * - Preview/Print selected visible rows
  * - Fixed bulk delete/select-all behavior
- * - ✅ Documents (only for "الكفالات" type_id=3)
+ * - ✅ Documents column for all beneficiary types
  */
 
 declare(strict_types=1);
@@ -24,9 +24,6 @@ requireLogin();
 
 $pdo   = getPDO();
 $types = getBeneficiaryTypes();
-
-/** ✅ Sponsorships (الكفالات) type id from your table */
-$kafalatTypeId = 3;
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
@@ -379,18 +376,20 @@ $stmt = $pdo->prepare(
 $stmt->execute($params);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/** ✅ Documents count only when viewing kafalat (type=3) */
+/** ✅ Documents count for beneficiaries present in $rows */
 $docCounts = [];
-$showDocs = ((int)$type === $kafalatTypeId);
 
-if ($showDocs) {
+if ($rows) {
+    $bids = array_map('intval', array_column($rows, 'id'));
+    $in   = implode(',', array_fill(0, count($bids), '?'));
     try {
         $cntStmt = $pdo->prepare("
             SELECT beneficiary_id, COUNT(*) AS cnt
             FROM beneficiary_documents
+            WHERE beneficiary_id IN ($in)
             GROUP BY beneficiary_id
         ");
-        $cntStmt->execute();
+        $cntStmt->execute($bids);
         foreach ($cntStmt->fetchAll(PDO::FETCH_ASSOC) as $c) {
             $docCounts[(int)$c['beneficiary_id']] = (int)$c['cnt'];
         }
@@ -403,7 +402,7 @@ if ($showDocs) {
 
 require_once __DIR__ . '/layout.php';
 
-renderPage('المستفيدون', 'beneficiaries', function() use ($types, $type, $q, $rows, $editRow, $docCounts, $showDocs, $kafalatTypeId) {
+renderPage('المستفيدون', 'beneficiaries', function() use ($types, $type, $q, $rows, $editRow, $docCounts) {
 ?>
     <?= renderFlash() ?>
 
@@ -543,9 +542,7 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
                     <th>الهاتف</th>
                     <th>راتب (دينار)</th>
                     <th>الحالة</th>
-                    <?php if ($showDocs): ?>
-                        <th style="width:130px">الوثائق</th>
-                    <?php endif; ?>
+                    <th style="width:130px">الوثائق</th>
                     <th style="width:260px">إجراءات</th>
                 </tr>
                 </thead>
@@ -574,19 +571,13 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
                         <td><?= $r['monthly_cash'] !== null ? e(number_format((float)$r['monthly_cash'], 2)) : '—' ?></td>
                         <td><?= ($r['status'] === 'active') ? 'نشط' : 'غير نشط' ?></td>
 
-                        <?php if ($showDocs): ?>
-                            <td>
-                                <?php if ((int)$r['beneficiary_type_id'] === $kafalatTypeId): ?>
-                                    <a class="btn btn-sm btn-outline-dark"
-                                       href="/zaka/orphan/admin/beneficiary_documents.php?beneficiary_id=<?= $bid ?>"
-                                       target="_blank">
-                                        وثائق (<?= $docCnt ?>)
-                                    </a>
-                                <?php else: ?>
-                                    <span class="text-muted">—</span>
-                                <?php endif; ?>
-                            </td>
-                        <?php endif; ?>
+                        <td>
+                            <a class="btn btn-sm btn-outline-dark"
+                               href="/zaka/documents/admin/beneficiary_documents.php?beneficiary_id=<?= $bid ?>"
+                               target="_blank">
+                                وثائق (<?= $docCnt ?>)
+                            </a>
+                        </td>
 
                         <td class="d-flex gap-1 flex-wrap">
                             <a class="btn btn-sm btn-outline-primary"
@@ -611,7 +602,7 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
 
                 <?php if (!$rows): ?>
                     <tr>
-                        <td colspan="<?= $showDocs ? 10 : 9 ?>" class="text-center text-muted py-4">لا توجد بيانات.</td>
+                        <td colspan="10" class="text-center text-muted py-4">لا توجد بيانات.</td>
                     </tr>
                 <?php endif; ?>
                 </tbody>
