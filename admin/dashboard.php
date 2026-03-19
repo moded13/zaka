@@ -96,12 +96,12 @@ renderPage('لوحة التحكم', 'dashboard', function () use (
         </div>
     </div>
 
-    <!-- ✅ New card: Orphan / Sponsorship module -->
+    <!-- ✅ Documents Center card -->
     <div class="col-6 col-md-4 col-xl-2">
-        <a href="/zaka/orphan/admin/index.php" class="text-decoration-none">
+        <a href="/zaka/documents/admin/index.php" class="text-decoration-none">
             <div class="stat-card" style="background: #163d7a;">
-                <div class="stat-value"><i class="bi bi-shield-lock-fill"></i></div>
-                <div class="stat-label">الكفالات والوثائق</div>
+                <div class="stat-value"><i class="bi bi-folder2-open"></i></div>
+                <div class="stat-label">مركز الوثائق</div>
                 <i class="bi bi-folder2-open stat-icon"></i>
             </div>
         </a>
