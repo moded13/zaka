@@ -95,6 +95,17 @@ renderPage('لوحة التحكم', 'dashboard', function () use (
             <i class="bi bi-box-seam-fill stat-icon"></i>
         </div>
     </div>
+
+    <!-- ✅ New card: Orphan / Sponsorship module -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <a href="/zaka/orphan/admin/index.php" class="text-decoration-none">
+            <div class="stat-card" style="background: #163d7a;">
+                <div class="stat-value"><i class="bi bi-shield-lock-fill"></i></div>
+                <div class="stat-label">الكفالات والوثائق</div>
+                <i class="bi bi-folder2-open stat-icon"></i>
+            </div>
+        </a>
+    </div>
 </div>
 
 <!-- Quick actions (mobile) -->

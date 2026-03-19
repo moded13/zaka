@@ -14,6 +14,7 @@
  *   - Hard delete with archive
  * - Preview/Print selected visible rows
  * - Fixed bulk delete/select-all behavior
+ * - ✅ Documents (only for "الكفالات" type_id=3)
  */
 
 declare(strict_types=1);
@@ -23,6 +24,9 @@ requireLogin();
 
 $pdo   = getPDO();
 $types = getBeneficiaryTypes();
+
+/** ✅ Sponsorships (الكفالات) type id from your table */
+$kafalatTypeId = 3;
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
@@ -174,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errs = [];
         if ($beneficiaryTypeId <= 0) $errs[] = 'نوع المستفيد مطلوب.';
         if ($fileNumber <= 0) $errs[] = 'رقم الملف مطلوب.';
-        if ($fullName === '') $errs[] = 'الاسم الكامل مطلوب.';
+        if ($fullName === '') $errs[] = 'الاسم الكامل مطل��ب.';
 
         if ($errs) {
             flashError(implode(' | ', $errs));
@@ -271,7 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashSuccess("تم حذف المستفيد نهائيًا. (تمت أرشفة {$archivedItems} سجل توزيع)");
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            flashError('خطأ أثناء الحذف: ' . $e->getMessage());
+            flashError('خطأ أثناء ��لحذف: ' . $e->getMessage());
         }
 
         redirect(backUrl($type, $q));
@@ -324,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashSuccess("تم حذف {$deletedCount} مستفيد نهائيًا. (تمت أرشفة {$archivedItems} سجل توزيع) وتمت إعادة ترتيب أرقام الملفات.");
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            flashError('خطأ أثناء الحذف: ' . $e->getMessage());
+            flashError('خطأ: ' . $e->getMessage());
         }
 
         redirect(backUrl($type, $q));
@@ -375,11 +379,31 @@ $stmt = $pdo->prepare(
 $stmt->execute($params);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+/** ✅ Documents count only when viewing kafalat (type=3) */
+$docCounts = [];
+$showDocs = ((int)$type === $kafalatTypeId);
+
+if ($showDocs) {
+    try {
+        $cntStmt = $pdo->prepare("
+            SELECT beneficiary_id, COUNT(*) AS cnt
+            FROM beneficiary_documents
+            GROUP BY beneficiary_id
+        ");
+        $cntStmt->execute();
+        foreach ($cntStmt->fetchAll(PDO::FETCH_ASSOC) as $c) {
+            $docCounts[(int)$c['beneficiary_id']] = (int)$c['cnt'];
+        }
+    } catch (Throwable $e) {
+        $docCounts = [];
+    }
+}
+
 /* ───────────────────────────── UI ───────────────────────────── */
 
 require_once __DIR__ . '/layout.php';
 
-renderPage('المستفيدون', 'beneficiaries', function() use ($types, $type, $q, $rows, $editRow) {
+renderPage('المستفيدون', 'beneficiaries', function() use ($types, $type, $q, $rows, $editRow, $docCounts, $showDocs, $kafalatTypeId) {
 ?>
     <?= renderFlash() ?>
 
@@ -519,6 +543,9 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
                     <th>الهاتف</th>
                     <th>راتب (دينار)</th>
                     <th>الحالة</th>
+                    <?php if ($showDocs): ?>
+                        <th style="width:130px">الوثائق</th>
+                    <?php endif; ?>
                     <th style="width:260px">إجراءات</th>
                 </tr>
                 </thead>
@@ -532,6 +559,8 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
                             ($r['file_number'] ?? '') . ' ' .
                             ($r['type_name'] ?? '')
                         );
+                        $bid = (int)$r['id'];
+                        $docCnt = (int)($docCounts[$bid] ?? 0);
                     ?>
                     <tr data-filter-text="<?= e($rawText) ?>">
                         <td class="text-center">
@@ -544,6 +573,21 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
                         <td><?= e((string)($r['phone'] ?? '—')) ?></td>
                         <td><?= $r['monthly_cash'] !== null ? e(number_format((float)$r['monthly_cash'], 2)) : '—' ?></td>
                         <td><?= ($r['status'] === 'active') ? 'نشط' : 'غير نشط' ?></td>
+
+                        <?php if ($showDocs): ?>
+                            <td>
+                                <?php if ((int)$r['beneficiary_type_id'] === $kafalatTypeId): ?>
+                                    <a class="btn btn-sm btn-outline-dark"
+                                       href="/zaka/orphan/admin/beneficiary_documents.php?beneficiary_id=<?= $bid ?>"
+                                       target="_blank">
+                                        وثائق (<?= $docCnt ?>)
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                        <?php endif; ?>
+
                         <td class="d-flex gap-1 flex-wrap">
                             <a class="btn btn-sm btn-outline-primary"
                                href="<?= e(ADMIN_PATH) ?>/beneficiaries.php?edit=<?= (int)$r['id'] ?>&type=<?= (int)$type ?>&q=<?= urlencode($q) ?>">
@@ -567,7 +611,7 @@ renderPage('المستفيدون', 'beneficiaries', function() use ($types, $typ
 
                 <?php if (!$rows): ?>
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">لا توجد بيانات.</td>
+                        <td colspan="<?= $showDocs ? 10 : 9 ?>" class="text-center text-muted py-4">لا توجد بيانات.</td>
                     </tr>
                 <?php endif; ?>
                 </tbody>

@@ -1,7 +1,13 @@
 <?php
 require_once 'bootstrap.php';
 
-$id = (int)($_GET['id'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    redirect('income.php');
+}
+
+verifyCsrf();
+
+$id = (int)($_POST['id'] ?? 0);
 
 if ($id <= 0) {
     set_flash('error', 'المعرّف غير صحيح');
